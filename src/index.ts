@@ -1,4 +1,4 @@
-import { BasicTool } from "zotero-plugin-toolkit/dist/basic";
+import { BasicTool } from "zotero-plugin-toolkit";
 import Addon from "./addon";
 import { config } from "../package.json";
 
@@ -13,7 +13,6 @@ if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
   _globalThis.Zotero_Tabs = basicTool.getGlobal("Zotero_Tabs");
   _globalThis.window = window = basicTool.getGlobal("window");
   _globalThis.URL = basicTool.getGlobal("window").URL;
-  _globalThis.setTimeout = basicTool.getGlobal("window").setTimeout;
   _globalThis.URLSearchParams = basicTool.getGlobal("window").URLSearchParams;
   _globalThis.Headers = basicTool.getGlobal("window").Headers;
   _globalThis.AbortSignal = basicTool.getGlobal("window").AbortSignal;

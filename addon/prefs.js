@@ -1,6 +1,7 @@
 pref("extensions.zotero.__addonRef__.enable", true);
 pref("extensions.zotero.__addonRef__.tags", "[]");
 pref("extensions.zotero.__addonRef__.languages", "[\"Arabic\", \"Bengali\", \"Bulgarian\", \"Chinese\", \"Croatian\", \"Czech\", \"Danish\", \"Dutch\", \"English\", \"Estonian\", \"Finnish\", \"French\", \"German\", \"Greek\", \"Hebrew\", \"Hindi\", \"Hungarian\", \"Italian\", \"Indonesian\", \"Japanese\", \"Korean\", \"Latvian\", \"Norwegian\", \"Polish\", \"Portuguese\", \"Romanian\", \"Russian\", \"Serbian\", \"Slovak\", \"Slovenian\", \"Spanish\", \"Swahili\", \"Swedish\", \"Thai\", \"Turkish\", \"Ukrainian\", \"Vietnamese\"]");
+pref("extensions.zotero.__addonRef__.papersgptState", "Offline");
 pref("extensions.zotero.__addonRef__.startLocalServer", false);
 pref("extensions.zotero.__addonRef__.email", "");
 pref("extensions.zotero.__addonRef__.token", "");
@@ -22,7 +23,7 @@ pref("extensions.zotero.__addonRef__.secretKey", "");
 pref("extensions.zotero.__addonRef__.model", "gpt-3.5-turbo");
 pref("extensions.zotero.__addonRef__.api", "https://api.openai.com");
 pref("extensions.zotero.__addonRef__.temperature", "1.0");
-pref("extensions.zotero.__addonRef__.deltaTime", 100);
+pref("extensions.zotero.__addonRef__.deltaTime", 10);
 pref("extensions.zotero.__addonRef__.width", "32%");
 pref("extensions.zotero.__addonRef__.tagsMore", "expand");
 pref("extensions.zotero.__addonRef__.chatNumber", 3);

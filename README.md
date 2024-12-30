@@ -1,15 +1,18 @@
 <h1 align="center">
 PapersGPT For Zotero
 </h1>
-It is a zotero AI plugin for improving your papers reading and research efficently with ChatGPT, Gemini, Claude, Llama 3.2, Gemma, Mistral and Phi-3.5. It offers users the ability to ask questions, extract insights, and converse with PDFs directly, providing a powerful research assistant for scholars, researchers, and anyone who deals with large amounts of text in PDF format.
+It is a zotero AI plugin for improving your papers reading and research efficently with ChatGPT, Gemini, Claude, DeepSeek, Phi 4, Llama 3.2, Gemma and Mistral. It offers users the ability to ask questions, extract insights, and converse with PDFs directly, providing a powerful research assistant for scholars, researchers, and anyone who deals with large amounts of text in PDF format.
 
 ## Key Features
 
 **Lots of SOTA Business LLMs For Choosing:**
 
 - Powered by the smartest cutting-edge LLMs, offering high accuracy to assist you effectively reading papers. Now support the following latest SOTA models:  
-  *gemini-exp-1121* :fire:   
-  *gemini-exp-1114*  
+  *DeepSeek* Beats Claude 3.5 Sonnet + GPT-4o, now the price almost 1/20 of GPT-4o :sparkles: :fire:   
+  *gemini-2.0-flash-thinking* :sparkles: :fire:   
+  *gemini-2.0-flash-exp* :sparkles: :fire:   
+  *gemini-exp-1206*  **#1 on Chatbot Arena** :sparkles: :fire:   
+  *gemini-exp-1121*   
   *LearnLM-1.5* :fire:  
   *gemini-1.5-pro*  
   *gemini-1.5-flash*  
@@ -21,11 +24,11 @@ It is a zotero AI plugin for improving your papers reading and research efficent
 **Lots of the Latest SOTA Open Source Freely Local LLMs For Mac Users:**
 
 - There are many SOTA free and open source models built in, Now support the following models:  
+  *Phi-4* :sparkles: :fire:   
   *Llama3.2*  
   *QwQ-32B-Preview* :fire:   
-  *Marco-o1* :fire:   
+  *Marco-o1* :fire:  
   *Gemma2*   
-  *Phi-3.5*  
   *Mistral*   
   After free registration, these models can be automatically downloaded, installed and used with just one click on the plugin page, models are all locally stored, ensuring not sending your data to remote LLMs.  
   Of course, these models can be switched as your will, and smarter Open Source LLMs in the future would be accessed as soon as possible.
@@ -51,7 +54,7 @@ It is a zotero AI plugin for improving your papers reading and research efficent
 **Select LLM models:**
  
 - For Windows users, after registration the OpenAI, Claude, and Gemini models can all be accessed and switched by one click.  
-- For Mac users, after registration besides the above excellent business models, Llama3.2, Gemma2, Phi-3.5 and Mistral can all be choosed by just one click in plugin without manualy installing many boring additional tools or softwares.
+- For Mac users, after registration besides the above excellent business models, Phi 4, Llama 3.2, Gemma 2 and Mistral can all be choosed by just one click in plugin without manualy installing many boring additional tools or softwares.
 - Now the registration is open and free!
  
 **Chat PDFs in Zotero:** 

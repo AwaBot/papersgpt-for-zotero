@@ -2,7 +2,7 @@ import { config } from "../../package.json";
 import Meet from "./Meet/api"
 import Utils from "./utils";
 import { Document } from "langchain/document";
-import { help, fontFamily, defaultTags, parseTag } from "./base"
+import { help, fontFamily, defaultBuiltInTags, parseTag, defaultChatPrompt, defaultBuiltInPrompts } from "./base"
 import { getLocalModelDownloadProgress, setApiKey, getSupportedLLMs, ModelConfig, selectModel } from "./Meet/papersgpt";
 import { checkFileExist, startLocalLLMEngine, shutdownLocalLLMEngine } from "../hooks";
 
@@ -55,6 +55,8 @@ export default class Views {
   private dotsContainer!: HTMLDivElement;
   private tagsContainer!: HTMLDivElement;
   private utils: Utils;
+  private isDarkMode: boolean = false
+  private isInference: boolean = false 
   constructor() {
     this.utils = new Utils()
     this.registerKey()
@@ -63,6 +65,7 @@ export default class Views {
     // @ts-ignore
     window.Meet = Meet
     Meet.Global.views = this
+    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
 
   private addStyle() {
@@ -262,6 +265,7 @@ export default class Views {
       if (
         event.target instanceof window.HTMLInputElement ||
         event.target instanceof window.HTMLTextAreaElement ||
+        event.target instanceof window.HTMLSelectElement ||
         (event.target as HTMLDivElement).classList.contains("tag")
       ) {
         return
@@ -428,6 +432,10 @@ export default class Views {
 	  }
       }, publishConfigContainer) as HTMLSelectElement//HTMLDivElement
 
+      if (this.isDarkMode) {
+	publishSelectContainer.style.color = '#222';
+      }
+
       var publisherSelectIdx = 0 
       for (var i = 0; i < this.publishers.length; i++) {
 	  if (this.publishers[i] == curPublisher) {
@@ -444,6 +452,7 @@ export default class Views {
 	  }, publishSelectContainer) as HTMLDivElement
       }
       publishSelectContainer.selectedIndex = publisherSelectIdx 
+
 
       publishSelectContainer.addEventListener("change", async event => {
 	  event.stopPropagation();
@@ -472,7 +481,7 @@ export default class Views {
 	  if (modelNode != null) {
 	      modelNode.innerHTML = ""
 	  } else if (curPublisher != "Customized") {
-		  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
+        	  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
 
 		  if (modelSelectDivContainer != null) {
 			  modelSelectDivContainer.remove() 
@@ -500,6 +509,10 @@ export default class Views {
 			  id: modelSelectId,
 			  classList: ["modelSelect"],
 		  }, modelSelectDivContainer) as HTMLSelectElement // DivElement
+
+                  if (this.isDarkMode) {
+	            modelNode.style.color = '#222';
+                  }
 	  } 
 
 	  for (var i = 0; i < curShowModels.length; i++) {
@@ -518,7 +531,7 @@ export default class Views {
 		  }
 	      }, modelNode) as HTMLDivElement
 	  }
-	  modelNode.selectedIndex = curPublisherElement.defaultModelIdx
+	  modelNode.selectedIndex = 0 
 	  var curModel = curShowModels[modelNode.selectedIndex]
 	  Zotero.Prefs.set(`${config.addonRef}.usingModel`, curModel)
 
@@ -551,30 +564,26 @@ export default class Views {
 		  }
 	      }, modelConfigContainer) as HTMLDivElement	
 
-	      var apiId = "apiUrl"
+	      var apiUrl = "apiUrl"
 	      var apitext = curPublisher + " API URL"
-	      var apiUrlContainer: HTMLDivElement
+	      var apiUrlInputContainer: HTMLDivElement
 	      if (curPublisherElement.apiUrl.length > 0) {
  	          apitext = curPublisherElement.apiUrl
 
-		  apiUrlContainer = ztoolkit.UI.appendElement({
+		  apiUrlInputContainer = ztoolkit.UI.appendElement({
   		      tag: "input",
-		      id: apiId,
-		      styles: {
-		          width: "150px"
-		      },
+		      id: apiUrl,
+		      classList: [apiUrl],
 		      properties: {
 		          type: "text",
 		          value: apitext
 		      }
 		  }, apiUrlContainer) as HTMLDivElement
 	      } else {
-		  apiUrlContainer = ztoolkit.UI.appendElement({
+		  apiUrlInputContainer = ztoolkit.UI.appendElement({
 		      tag: "input",
-		      id: apiId,
-		      styles: {
-			  width: "150px"
-		      },
+		      id: apiUrl,
+		      classList: [apiUrl],
 		      properties: {
 			  type: "text",
 			  placeholder: apitext
@@ -582,13 +591,17 @@ export default class Views {
 		  }, apiUrlContainer) as HTMLDivElement
 	      }
 
-	      apiUrlContainer.addEventListener("change", async event => {
-		  if ((<HTMLInputElement>apiUrlContainer).value == null) return
+	      if (this.isDarkMode) {
+	        apiUrlInputContainer.style.color = '#222';
+	      }
+	      
+	      apiUrlInputContainer.addEventListener("change", async event => {
+		  if ((<HTMLInputElement>apiUrlInputContainer).value == null) return
 	          const curPublisherElement = this.publisher2models.get(curPublisher)
 		  if (curPublisherElement != null) {
-		      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlContainer).value
-		      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlContainer).value)
-		      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlContainer).value)
+		      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
+		      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
+		      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
 		  } 
 	      })
 
@@ -614,9 +627,6 @@ export default class Views {
 		  customModelContainer = ztoolkit.UI.appendElement({
   		      tag: "input",
 		      id: customModelId,
-		      styles: {
-		          width: "150px"
-		      },
 		      properties: {
 		          type: "text",
 		          value: customModelText
@@ -626,14 +636,15 @@ export default class Views {
 		  customModelContainer = ztoolkit.UI.appendElement({
 		      tag: "input",
 		      id: customModelId,
-		      styles: {
-			  width: "150px"
-		      },
 		      properties: {
 			  type: "text",
 			  placeholder: customModelText
 		      }
 		  }, customModelDivContainer) as HTMLDivElement
+	      }
+
+              if (this.isDarkMode) {
+	        customModelContainer.style.color = '#222';
 	      }
 
 	      customModelContainer.addEventListener("change", async event => {
@@ -759,9 +770,7 @@ export default class Views {
 		 apiContainer = ztoolkit.UI.appendElement({
   		     tag: "input",
 		     id: apiId,
-		     styles: {
-		         width: "150px"
-		     },
+		     classList: [apiId],
 		     properties: {
 		         type: "text",
 		         value: apitext
@@ -771,16 +780,18 @@ export default class Views {
 		  apiContainer = ztoolkit.UI.appendElement({
 		      tag: "input",
 		      id: apiId,
-		      styles: {
-			  width: "150px"
-		      },
+		      classList: [apiId],
 		      properties: {
 			  type: "text",
 			  placeholder: apitext
 		      }
 		  }, apiDivContainer) as HTMLDivElement
 	     }
-
+ 
+	     if (this.isDarkMode) {
+	       apiContainer.style.color = '#222';
+	     }
+	     
 	     apiContainer.addEventListener("change", async event => {
 		 if ((<HTMLInputElement>apiContainer).value == null) return
 		 const curPublisherElement = this.publisher2models.get(curPublisher)
@@ -796,7 +807,6 @@ export default class Views {
 			 } else if (curPublisher == "Customized") {
 			     Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
 			 }
-			 //if (Zotero.isMac && curPublisher != "Customized") {
 			 if (Zotero.isMac) {
 			     const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
 			 }
@@ -805,7 +815,211 @@ export default class Views {
 	  }
 	});
 
+        var curPublisherElement = this.publisher2models.get(curPublisher)
+       	if (curPublisherElement && curPublisher == "Customized") {
+          const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
+	  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
 
+	  if (modelSelectDivContainer != null) {
+	      modelSelectDivContainer.remove() 
+	  }
+
+	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
+          if (customModelDivContainer) {
+	      customModelDivContainer.remove()  
+	  }
+	  
+	  var apiUrlId  = "apiUrlDiv"
+	  var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv")
+	  if (apiUrlContainer) {
+	      apiUrlContainer.remove()  
+	  }
+
+	  apiUrlContainer = ztoolkit.UI.appendElement({
+	    tag: "div",
+	    id: apiUrlId,
+	    classList: [apiUrlId],
+	    styles: {
+	      margin: "6px",
+	      fontSize: "12px",
+              borderRadius: "5px"
+	    }
+	  }, modelConfigContainer) as HTMLDivElement	
+
+	  var apiUrl = "apiUrl"
+	  var apitext = curPublisher + " API URL"
+	  var apiUrlInputContainer: HTMLDivElement
+	  if (curPublisherElement.apiUrl.length > 0) {
+ 	    apitext = curPublisherElement.apiUrl
+
+	    apiUrlInputContainer = ztoolkit.UI.appendElement({
+  	      tag: "input",
+	      id: apiUrl,
+	      classList: [apiUrl],
+	      properties: {
+	        type: "text",
+		value: apitext
+	      }
+	    }, apiUrlContainer) as HTMLDivElement
+	  } else {
+	    apiUrlInputContainer = ztoolkit.UI.appendElement({
+	      tag: "input",
+	      id: apiUrl,
+	      classList: [apiUrl],
+	      properties: {
+		type: "text",
+		placeholder: apitext
+	      }
+	    }, apiUrlContainer) as HTMLDivElement
+	  }
+
+	  if (this.isDarkMode) {
+	    apiUrlInputContainer.style.color = '#222';
+	  }
+	      
+	  apiUrlInputContainer.addEventListener("change", async event => {
+	    if ((<HTMLInputElement>apiUrlInputContainer).value == null) return
+	    const curPublisherElement = this.publisher2models.get(curPublisher)
+	    if (curPublisherElement != null) {
+	      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
+	      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
+	      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
+	    } 
+	  })
+
+	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
+          if (customModelDivContainer) {
+	      customModelDivContainer.remove()  
+	  }
+
+          var customModelDivId  = "customModelDiv"
+	  customModelDivContainer = ztoolkit.UI.appendElement({
+	    tag: "div",
+	    id: customModelDivId,
+	    classList: [customModelDivId],
+	    styles: {
+	      margin: "6px",
+	      fontSize: "12px",
+              borderRadius: "5px"
+            }
+	  }, modelConfigContainer) as HTMLDivElement	
+
+	  var customModelId = "customModelId"
+	  var customModelText = curPublisher + " Model Name"
+	  var customModelContainer: HTMLDivElement
+	  if (curPublisherElement.models.length > 0) {
+ 	    customModelText = curPublisherElement.models[0]
+
+	    customModelContainer = ztoolkit.UI.appendElement({
+  	      tag: "input",
+	      id: customModelId,
+	      properties: {
+	        type: "text",
+	        value: customModelText
+	      }
+	    }, customModelDivContainer) as HTMLDivElement
+	  } else {
+	    customModelContainer = ztoolkit.UI.appendElement({
+	      tag: "input",
+	      id: customModelId,
+	      properties: {
+		type: "text",
+		placeholder: customModelText
+	      }
+	    }, customModelDivContainer) as HTMLDivElement
+	  }
+
+          if (this.isDarkMode) {
+	    customModelContainer.style.color = '#222';
+	  }
+
+	  customModelContainer.addEventListener("change", async event => {
+	    if ((<HTMLInputElement>customModelContainer).value == null) return
+	    const curPublisherElement = this.publisher2models.get(curPublisher)
+            if (curPublisherElement != null) {
+	      if (curPublisherElement.models.length > 0) {
+	        curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
+	      } else {
+	        curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
+	      }
+	      Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
+	      Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
+	    }
+	  })
+          
+          var apiDivId  = "apidiv"
+	  
+	  var apiDivContainerExist = toolbarContainer.querySelector(".apidiv")
+          if (apiDivContainerExist) {
+	      apiDivContainerExist.remove()  
+	  }
+	  
+	  const apiDivContainer = ztoolkit.UI.appendElement({
+	    tag: "div",
+	    id: apiDivId,
+	    classList: [apiDivId],
+	    styles: {
+	      margin: "6px",
+	      fontSize: "12px",
+              borderRadius: "5px"
+	    }
+	  }, modelConfigContainer) as HTMLDivElement	
+
+	  var apiId = "api"
+	  var apitext = curPublisher + " API KEY"
+	  var apiContainer: HTMLDivElement
+	  if (curPublisherElement.apiKey.length > 0) {
+ 	    apitext = curPublisherElement.apiKey
+
+     	    apiContainer = ztoolkit.UI.appendElement({
+  	      tag: "input",
+	      id: apiId,
+	      classList: [apiId],
+	      properties: {
+	        type: "text",
+                value: apitext
+	      }
+            }, apiDivContainer) as HTMLDivElement
+	  } else {
+	    apiContainer = ztoolkit.UI.appendElement({
+	      tag: "input",
+	      id: apiId,
+	      classList: [apiId],
+	      properties: {
+	        type: "text",
+	        placeholder: apitext
+	      }
+	    }, apiDivContainer) as HTMLDivElement
+	  }
+ 
+	  if (this.isDarkMode) {
+	    apiContainer.style.color = '#222';
+	  }
+	     
+	  apiContainer.addEventListener("change", async event => {
+	    if ((<HTMLInputElement>apiContainer).value == null) return
+	    const curPublisherElement = this.publisher2models.get(curPublisher)
+	    if (curPublisherElement != null) { 
+	      curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
+	      Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
+	      if (curPublisher == "OpenAI") {
+	        Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
+	      } else if (curPublisher == "Claude-3") {
+		Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
+	      } else if (curPublisher == "Gemini") {
+		Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
+	      } else if (curPublisher == "Customized") {
+		Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
+	      }
+	      if (Zotero.isMac) {
+	        const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
+	      }
+	    }
+	  })
+          
+	  return
+	}
+        
 	const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
 
 	var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
@@ -830,6 +1044,12 @@ export default class Views {
 	    modelSelectContainer.remove()
         }
 
+	var modelSelectApiContainer = toolbarContainer.querySelector(".apidiv")!
+        if (modelSelectApiContainer) {
+	    modelSelectApiContainer.remove()
+        }
+
+
 	var modelSelectId = "modelSelect"
 	modelSelectContainer = ztoolkit.UI.appendElement({
 		  tag: "select",
@@ -837,18 +1057,32 @@ export default class Views {
 		  classList: ["modelSelect"],
 	}, modelSelectDivContainer) as HTMLSelectElement // DivElement
 
+	if (this.isDarkMode) {
+	  modelSelectContainer.style.color = '#222';
+	}
+
 	var curShowPublisher = this.publisher2models.get(curPublisher)
-	if (curShowPublisher == null)   { return}
+	if (!curPublisherElement)   {
+          curShowPublisher = this.publisher2models.get("OpenAI")	
+          curShowPublisher.defaultModelIdx = 0  
+	}	
 	var curShowModels = curShowPublisher.models
 
+	var modelSelectedIdx = 0
 	for (var i = 0; i < curShowModels.length; i++) {
 	    var optionId = "optionModel" + i
 
+	    var curModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
+	    if (curModel === curShowModels[i]) {
+		    modelSelectedIdx = i
+	    }
 	    var modelName = curShowModels[i]
 	    if (modelName.includes(":")) {
 	        let index = modelName.indexOf(":")
                 modelName = modelName.substr(0, index)  		   
 	    }
+
+
 	    const optionContainer = ztoolkit.UI.appendElement({
 	        tag: "option",
 	        id: optionId,
@@ -859,13 +1093,13 @@ export default class Views {
 	    }, modelSelectContainer) as HTMLDivElement
 	}
 
-        modelSelectContainer.selectedIndex = curShowPublisher.defaultModelIdx
+        modelSelectContainer.selectedIndex = modelSelectedIdx 
 
 	modelSelectContainer.addEventListener("change", async event => {
             var curModel = modelSelectContainer.value
 
 	    for (var i = 0; i < curShowModels.length; i++) {
-	       if (curModel == curShowModels[i] || (curPublisher == "Claude-3" && curShowModels[i].includes(curModel))) {
+	       if (curModel == curShowModels[i] || ((curPublisher == "Claude-3" || curPublisher == "Gemini") && curShowModels[i].includes(curModel))) {
 	           Zotero.Prefs.set(`${config.addonRef}.usingModel`, curShowModels[i])
 		   modelSelectContainer.selectedIndex = i
 		   var curPublisherElement = this.publisher2models.get(curPublisher)
@@ -877,7 +1111,6 @@ export default class Views {
 	    }
 
 	      if (curPublisher == "Local LLM") {
-		      
 		  const progressContainer = modelConfigContainer.querySelector(".progress")! as HTMLProgressElement
 		  if (progressContainer != null) {
 		      progressContainer.remove()  
@@ -942,88 +1175,87 @@ export default class Views {
 	      }
 	  });
 
-	  var curPublisherConfig = this.publisher2models.get(curPublisher)
-	  if (curPublisherConfig != null) { 
-	      if (curPublisherConfig != null && curPublisherConfig.hasApiKey) {
-		  var apiDivId  = "apidiv"
+	  if (curPublisherElement && curPublisher == "Local LLM")  return
+          var apiDivId  = "apidiv"
 
-                  var apiDivContainer = toolbarContainer.querySelector(".apidiv")!
-                  if (apiDivContainer) {
-	              apiDivContainer.remove()
-                  }
+          var apiDivContainer = toolbarContainer.querySelector(".apidiv")!
+	  if (apiDivContainer) {
+		  apiDivContainer.remove()
+	  }
 
-		  apiDivContainer = ztoolkit.UI.appendElement({
-		      tag: "div",
-		      id: apiDivId,
-		      classList: [apiDivId], 
-		      styles: {
+	  apiDivContainer = ztoolkit.UI.appendElement({
+		  tag: "div",
+		  id: apiDivId,
+		  classList: [apiDivId], 
+		  styles: {
 			  margin: "6px",
 			  fontSize: "12px",
-                          borderRadius: "5px"
-		      }
-		  }, modelConfigContainer) as HTMLDivElement	
-
-		  var apiId = "api"
-		  var apitext = curPublisher + " API KEY"
-		  if (curPublisherConfig.apiKey.length > 0) {
-		      apitext = curPublisherConfig.apiKey
+			  borderRadius: "5px"
 		  }
+	  }, modelConfigContainer) as HTMLDivElement	
 
-		  var apiContainer: HTMLDivElement
-		  if (curPublisherConfig.apiKey.length > 0) {
-		      apitext = curPublisherConfig.apiKey
-
-		      apiContainer = ztoolkit.UI.appendElement({
-			  tag: "input",
-			  id: apiId,
-			  styles: {
-			      width: "150px",
-			  },
-			  properties: {
-			      type: "text",
-			      value: apitext
-			  }
-		      }, apiDivContainer) as HTMLDivElement
-
-		  } else {
-		      apiContainer = ztoolkit.UI.appendElement({
-			  tag: "input",
-			  id: apiId,
-			  styles: {
-			      width: "150px"
-			  },
-			  properties: {
-			      type: "text",
-			      placeholder: apitext
-			  }
-		      }, apiDivContainer) as HTMLDivElement
-		  }
-
-		  apiContainer.addEventListener("change", async event => {
-		      var curPublisherElement =  this.publisher2models.get(curPublisher)
-		      if (curPublisherElement != null) {
-			  curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-			  Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, curPublisherElement.apiKey)
-
-                          if (curPublisher == "OpenAI") {
-			      Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-			  } else if (curPublisher == "Claude-3") {
-			      Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-			  } else if (curPublisher == "Gemini") {
-			      Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-			  } else if (curPublisher == "Customized") {
-			     Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-			  }
-
-			  if (Zotero.isMac) {
-		  	    const response = await setApiKey(curPublisher, curPublisherElement.apiKey)
-			  }
-		      }
-		  })
-	      }
+	  var apiId = "api"
+	  var apitext = curPublisher + " API KEY"
+	  if (!curPublisherElement) {
+		  apitext = "OpenAI API KEY"
+	  } else if (curPublisherElement && curPublisherElement.apiKey.length > 0) {
+		  apitext = curPublisherElement.apiKey
 	  }
-      }
 
+	  var apiContainer: HTMLDivElement
+	  if (curPublisherElement && curPublisherElement.apiKey.length > 0) {
+		  apitext = curPublisherElement.apiKey
+
+		  apiContainer = ztoolkit.UI.appendElement({
+			  tag: "input",
+			  id: apiId,
+			  classList: [apiId],
+			  properties: {
+				  type: "text",
+				  value: apitext
+			  }
+		  }, apiDivContainer) as HTMLDivElement
+
+	  } else {
+		  apiContainer = ztoolkit.UI.appendElement({
+			  tag: "input",
+			  id: apiId,
+			  classList: [apiId],
+			  properties: {
+				  type: "text",
+				  placeholder: apitext
+			  }
+		  }, apiDivContainer) as HTMLDivElement
+	  }
+	  if (this.isDarkMode) {
+		  apiContainer.style.color = '#222';
+	  }
+
+	  apiContainer.addEventListener("change", async event => {
+		  if (curPublisher == "OpenAI") {
+			  Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
+		  } else if (curPublisher == "Claude-3") {
+			  Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
+		  } else if (curPublisher == "Gemini") {
+			  Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
+		  } else if (curPublisher == "Customized") {
+			  Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
+		  }
+
+		  if (Zotero.isMac) {
+			  const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
+		  }
+
+		  Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
+		  if (curPublisherElement != null) {
+			  curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
+		  } else {
+			  curPublisher = "OpenAI"
+			  Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, curPublisher)
+		  }
+
+	  })
+  }
 
 
   private buildContainer() {
@@ -1613,7 +1845,7 @@ export default class Views {
 					      Zotero.Prefs.set(`${config.addonRef}.isLicenseActivated`, true) 
 					      Zotero.Prefs.set(`${config.addonRef}.grade`, res.response.grader) 	
 
-
+                                
 					      await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
 					      Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
 
@@ -1738,9 +1970,6 @@ export default class Views {
                       verifyLicenseContainer.style.width = "68px" 
                       verifyLicenseContainer.style.height = "39px" 
 
-
-
-		      
 		      
 		      licenseContainer.style.left = `${x + container.clientWidth * 0.2}px`      
 	              licenseContainer.style.top = 	`${y + 210}px`
@@ -1755,13 +1984,13 @@ export default class Views {
 	}
         window.alert('Subscribe', this.container!);
       })
-           
+    
+
     // input 
     const inputContainer = this.inputContainer = ztoolkit.UI.appendElement({
       tag: "div",
       id: "input-container",
       styles: {
-        borderBottom: "1px solid #f6f6f6",
         width: "100%",
         display: "flex",
         justifyContent: "center",
@@ -1770,16 +1999,45 @@ export default class Views {
       },
       children: [
         {
+	  tag: "div",
+	  id: "input-send-container",
+	  styles: {
+            width: "100%",
+	    display: "flex",
+            alignItems: "center",
+	  },
+	  children: [ {
           tag: "input",
           styles: {
-            width: "calc(100% - 1.5em)",
-            height: "2.5em",
+            //width: "calc(100% - 1.5em)",
+            width: "calc(100% - 5em)",
+            height: "3em",
             borderRadius: "10px",
-            border: "none",
+            border: "1px solid #d3d3d3",
             outline: "none",
             fontFamily: "Consolas",
-            fontSize: ".8em",
+            fontSize: "1em",
           }
+	  } ,
+          {
+          tag: "div",
+	  id: "send-icon-container",
+	  classList: ["send-msgs-icon"],
+          styles: {
+	    position: "relative",
+            height: "3.2em",
+            width: "3.2em",
+	    borderRadius: "10px",
+            border: "1px solid #fff",
+            whiteSpace: "nowrap",
+
+            backgroundColor: "#fff0f5", //#fff0f5
+
+            transition: "backgroundColor 1s linear 0s"
+          }
+        }
+	]
+
         },
         {
           tag: "textarea",
@@ -1803,6 +2061,47 @@ export default class Views {
     const inputNode = inputContainer.querySelector("input")!
     this.bindUpDownKeys(inputNode)
     const textareaNode = inputContainer.querySelector("textarea")!
+    const sendMsgNode = inputContainer.querySelector(".send-msgs-icon")
+
+       
+    ztoolkit.UI.appendElement({
+        tag: "img",
+	id: "msg-send-icon",
+	styles: {
+          position: "absolute",
+	  top: "30%",
+	  left: "30%",
+          width: "1.2em",
+	  height: "1.2em",
+          justifyContent: "center"	
+	},
+	properties: {
+            src: `chrome://${config.addonRef}/content/icons/paperplane-fill.svg`,
+	    alt: ""	    
+	},
+    }, sendMsgNode)
+
+    sendMsgNode.addEventListener("mousedown", async event => {
+        let msgNode = this.inputContainer.querySelector(".send-msgs-icon")
+        let text = this.inputContainer.querySelector("input")?.value as string
+        if (msgNode && text.length > 0 && !this.isInference) {
+            msgNode.style.backgroundColor = "#fff0f5"
+            this.execTag({tag: "Chat PDF", position: 1, color: "red", trigger: "", text: defaultChatPrompt})
+	}	
+    })
+
+    inputNode.addEventListener("input", async event => {
+
+        let text = this.inputContainer.querySelector("input")?.value as string
+	if (text.length > 0 && !this.isInference) {
+          const sendMsgNode = inputContainer.querySelector(".send-msgs-icon")
+          sendMsgNode.style.backgroundColor = "#4169e1"
+	} else {
+          sendMsgNode.style.backgroundColor = "#fff0f5" 
+	}	
+    })
+
+    
     const that = this;
     let lastInputText = ""
     let inputListener = function (event: KeyboardEvent) {
@@ -1953,13 +2252,13 @@ export default class Views {
           inputNode.value = ""
           inputNode.style.display = ""
           inputNode.focus()
-          return
+          //return
         }
         if (inputNode.value.length) {
           inputNode.value = ""
-          return
+          //return
         }
-        // 退出container
+        // Exit container
         that.hide()
         that.container!.remove()
         that.isInNote && Meet.BetterNotes.reFocus()
@@ -1972,6 +2271,7 @@ export default class Views {
             shutdownLocalLLMEngine()
 	    Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
 	}	
+        Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Offline")
       } else if (event.key == "/" && text == "/" && that.container.querySelector("input")?.style.display != "none") {
         const rect = that.container.querySelector("input")!.getBoundingClientRect()
         const commands = ["clear", "help", "report", "secretKey", "model", "api", "temperature", "chatNumber", "relatedNumber" , "deltaTime", "tagsMore", "width"]
@@ -2024,12 +2324,12 @@ export default class Views {
       listeners: [
         {
           /**
-           * 双击是插件的输出，可能是插入笔记
+           * Double-clicking is the output of the plug-in, which may be inserting notes 
            */
           type: "dblclick",
           listener: () => {
-            // 无论后面发生什么错误，都确保先复制下来
-            // 目前可能用户的Better Notes版本低，不支持API
+            // No matter what error occurs later, be sure to copy it first
+            // At present, the user's version of Better Notes may be old and does not support the API.
             const text = outputContainer.querySelector("[pureText]")!.getAttribute("pureText") || ""
             new ztoolkit.Clipboard()
               .addText(text, "text/unicode")
@@ -2055,7 +2355,7 @@ export default class Views {
                   e._item.parentID === parentID && !Components.utils.isDeadWrapper(e._iframeWindow)
               );
               ztoolkit.log(editor)
-              // 笔记被打开，且打开笔记视图，才触发向当前条目笔记插入
+              // The insertion of notes into the current entry is triggered only when the note is opened and the note view is opened. 
               if (editor && document.querySelector("#zotero-tb-toggle-notes-pane.toggled")) {
                 Meet.BetterNotes.insertEditorText(htmlString, editor)
                 new ztoolkit.ProgressWindow(config.addonName)
@@ -2223,7 +2523,7 @@ export default class Views {
         {
           type: "mouseup",
           listener: async () => {
-            if (timer) {
+	    if (timer) {
               window.clearTimeout(timer)
               timer = undefined
               this.outputContainer.querySelector(".auxiliary")?.remove()
@@ -2432,16 +2732,10 @@ export default class Views {
 
 		      })
 
- 
-		      
-		  
-
                       document.documentElement.append(backgroundContainer)
                       document.documentElement.append(allLanguagesContainer)
 
 		      backgroundContainer.style.display = "flex"
-		      
-                      //const rect = document.documentElement.getBoundingClientRect()
 		      
 		      backgroundContainer.style.height = "30%" 
 		      backgroundContainer.style.width = parentContainer.style.width 
@@ -2503,7 +2797,7 @@ export default class Views {
 		  }
 		  window.alert('Please specify language first:', this.container);
 		  
-	      } else { 
+	      } else {
                   await this.execTag(tag)
 	      }
             }
@@ -2818,6 +3112,7 @@ export default class Views {
 
 
   private rippleEffect(div: HTMLDivElement, color: string) {
+    if (div == null) return 
     let [red, green, blue] = this.utils.getRGB(color)
     ztoolkit.UI.appendElement({
       tag: "div",
@@ -2831,21 +3126,65 @@ export default class Views {
    * execute tag 
    */
   private async execTag(tag: Tag) {
-    Meet.Global.input = this.inputContainer.querySelector("input")?.value as string
+    if (this.isInference) {
+      return 
+    }
+    this.isInference = true
+
+    let msgNode = this.inputContainer.querySelector(".send-msgs-icon")
+    let inputText = this.inputContainer.querySelector("input")?.value as string
+    if (msgNode && inputText.length > 0) {
+        msgNode.style.backgroundColor = "#fff0f5"
+    }	
+    
+    let chatTag = tag.tag
+    if (chatTag == "Chat PDF") {
+      Meet.Global.input = this.inputContainer.querySelector("input")?.value as string
+    } else if (chatTag == "Summary") {
+      Meet.Global.input = defaultBuiltInPrompts[0] 
+    } else if (chatTag == "Topic")  {
+      Meet.Global.input = defaultBuiltInPrompts[1] 
+    } else if (chatTag == "Background") {
+      Meet.Global.input = defaultBuiltInPrompts[2] 
+    } else if (chatTag == "Innovations") {
+      Meet.Global.input = defaultBuiltInPrompts[3] 
+    } else if (chatTag == "Challenges") {
+      Meet.Global.input = defaultBuiltInPrompts[4] 
+    } else if (chatTag == "Outlook") { 
+      Meet.Global.input = defaultBuiltInPrompts[5] 
+    }
+    //Meet.Global.input = this.inputContainer.querySelector("input")?.value as string
     this._tag = tag
-    const popunWin = new ztoolkit.ProgressWindow(tag.tag, { closeTime: -1, closeOtherProgressWindows: true })
+    const popunWin = new ztoolkit.ProgressWindow(tag.tag, { closeOnClick: true, closeTime: -1, closeOtherProgressWindows: true })
       .show()
+
     Meet.Global.popupWin = popunWin
     popunWin
       .createLine({ text: "Generating input content...", type: "default" })
     this.dotsContainer?.classList.add("loading")
     this.outputContainer.style.display = "none"
+    /*
     ztoolkit.log(tag, this.getTags())
     const tagIndex = this.getTags().map(JSON.stringify).indexOf(JSON.stringify(tag)) as number
     this.rippleEffect(
       this.container.querySelector(`#tag-${tagIndex}`)!,
       tag.color
-    )
+    )*/
+
+    //const tagIndex = this.getTags().map(JSON.stringify).indexOf(JSON.stringify(tag)) as number
+    if (chatTag == "Chat PDF") { 
+      this.rippleEffect(
+        this.container.querySelector(`#tag-chatpdf`)!,
+        tag.color
+      )
+    } else  {
+      const tagIndex = this.getTags().map(JSON.stringify).indexOf(JSON.stringify(tag)) as number
+      this.rippleEffect(
+        this.container.querySelector(`#tag-${tagIndex}`)!,
+        tag.color
+      )
+    }
+
     const outputDiv = this.outputContainer.querySelector("div")!
     outputDiv.innerHTML = ""
     outputDiv.setAttribute("pureText", "");
@@ -2881,6 +3220,15 @@ export default class Views {
       popunWin.createLine({ text: "Done", type: "fail" })
     }
     popunWin.startCloseTimer(3000)
+    this.isInference = false
+    
+    msgNode = this.inputContainer.querySelector(".send-msgs-icon")
+    inputText = this.inputContainer.querySelector("input")?.value as string
+    if (msgNode && inputText.length > 0) {
+        msgNode.style.backgroundColor = "#4169e1"
+    }	
+
+
   }
 
   /**
@@ -2926,12 +3274,12 @@ export default class Views {
       Zotero.Prefs.set(`${config.addonRef}.tags`, tagsJson)
     }
     let tags = JSON.parse(tagsJson)
-    for (let defaultTag of defaultTags) {
+    for (let defaultTag of defaultBuiltInTags) {
       if (!tags.find((tag: Tag) => tag.tag == defaultTag.tag)) {
         tags.push(defaultTag)
       }
     }
-    return (tags.length > 0 ? tags : defaultTags).sort((a: Tag, b: Tag) => a.position - b.position)
+    return (tags.length > 0 ? tags : defaultBuiltInTags).sort((a: Tag, b: Tag) => a.position - b.position)
   }
 
   private setTags(tags: any[]) {
@@ -2988,6 +3336,37 @@ export default class Views {
 
   public stopAlloutput() {
     this._ids.filter(id => id.type == "output").map(i => i.id).forEach(window.clearInterval)
+  }
+
+  public exit() {
+    this.outputContainer.style.display = "none"
+    const textareaNode = this.inputContainer.querySelector("textarea")!
+    const inputNode = this.inputContainer?.querySelector("input")!
+    if (textareaNode.style.display != "none") {
+      textareaNode.style.display = "none"
+      inputNode.value = ""
+      inputNode.style.display = ""
+      inputNode.focus()
+      //return
+    }
+    if (inputNode.value.length) {
+      inputNode.value = ""
+      //return
+    }
+    // exit container
+    this.hide()
+    this.container!.remove()
+    this.isInNote && Meet.BetterNotes.reFocus()
+    if (Zotero.isMac) {
+      var filename = "ChatPDFLocal"
+      if (!(IOUtils.exists(filename))) {
+        const temp = Zotero.getTempDirectory();
+        filename = PathUtils.join(temp.path.replace(temp.leafName, ""), `${filename}.dmg`);
+      } 
+      shutdownLocalLLMEngine()
+      Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
+    }	
+    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Offline")
   }
 
   /**
@@ -3200,112 +3579,262 @@ export default class Views {
     await getSupportedLLMs(this.publisher2models, this.publishers, email, token) 
   }
 
+  private toggleDarkMode(isDark: boolean) {
+    if (isDark) {
+      if (this.container) {
+        var selectNode = this.container.querySelector(".publisherSelect") 
+        if (selectNode) {
+	  //selectNode.style.backgroundColor = '#8d8d8d';//'#222';
+	  //selectNode.style.color = '#fff';
+	  selectNode.style.color = '#222';
+	}
+
+	var modelNode = this.container.querySelector(".modelSelect")
+	if (modelNode) {
+          modelNode.style.color = '#222';	
+	}
+
+        var apiNode = this.container.querySelector(".api")
+	if (apiNode) {
+          apiNode.style.color = '#222';	
+	}
+      }
+    }   
+  }
+
+
+  public registerWindowAppearance() {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+      this.isDarkMode = event.matches 
+      this.toggleDarkMode(event.matches);
+    }); 
+  } 
+
+
+  public registerInToolbar() {
+    const pluginName = "papersgpt"; 
+    const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
+    if (papersgptNode) {
+      return; 
+    }
+
+    const toolbar = Zotero.getMainWindow().document.querySelector("#zotero-items-toolbar")!;
+    const lookupNode = toolbar.querySelector("#zotero-tb-lookup")!;
+    const newNode = lookupNode?.cloneNode(true) as XUL.ToolBarButton;
+    newNode.setAttribute("id", pluginName);
+    if (Zotero.isMac) {
+      newNode.setAttribute("tooltiptext", "Chat PDF with ChatGPT, Claude, Gemini and Local LLMs");
+    } else {
+      newNode.setAttribute("tooltiptext", "Chat PDF with ChatGPT, Claude, Gemini");
+    }
+    newNode.setAttribute("command", "");
+    newNode.setAttribute("oncommand", "");
+    newNode.setAttribute("mousedown", "");
+    newNode.setAttribute("onmousedown", "");
+    newNode.addEventListener("click", async (event: any) => {
+      var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
+      if (papersgptState === "Offline") {
+        this.callback()
+      } else if (papersgptState == "Online") {
+        this.exit()
+      } 
+    });
+    const searchNode = toolbar.querySelector("#zotero-tb-search");
+    newNode.style.listStyleImage = `url(chrome://${config.addonRef}/content/icons/papersgpt-logo.png)`;
+    toolbar.insertBefore(newNode, searchNode);
+  }
+
+
+  public async registerInMenupopup() {
+    var showText = "Chat PDF with ChatGPT, Claude, Gemini"
+    if (Zotero.isMac) {
+      showText = "Chat PDF with ChatGPT, Claude, Gemini and Local LLMs"
+    }
+
+    const waitTime = 5000 
+    let delayCount = 0;
+    const checkPeriod = 50;
+
+    let reader = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)
+    let pageDownNode = null
+     
+    let readerInit = false
+    while ((!reader || !pageDownNode) && delayCount * checkPeriod < waitTime) {
+      if (reader) {
+        if (!readerInit) {
+	  await reader._initPromise;
+	  readerInit = true
+	}	
+	if (!pageDownNode) {
+          await Zotero.Promise.delay(checkPeriod);
+	  pageDownNode = reader?._iframeWindow?.document.querySelector("#zoomOut")
+	}
+      } else {
+        await Zotero.Promise.delay(checkPeriod);
+	reader = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)
+      }
+      delayCount++; 
+    } 
+   
+    const toolbarid = "papersgpt-toolbar-" + Zotero_Tabs.selectedID
+    const papersgptNode = reader?._iframeWindow?.document.getElementById(toolbarid)
+    if (papersgptNode) {
+      return 
+    }
+    const newNode = pageDownNode?.cloneNode(true) as XUL.ToolBarButton;
+    newNode.setAttribute("id", toolbarid);
+    if (Zotero.isMac) {
+      newNode.setAttribute("title", "Chat PDF with ChatGPT, Claude, Gemini and Local LLMs");
+    } else {
+      newNode.setAttribute("title", "Chat PDF with ChatGPT, Claude, Gemini");
+    }
+    newNode.setAttribute("command", "");
+    newNode.setAttribute("oncommand", "");
+    newNode.setAttribute("mousedown", "");
+    newNode.setAttribute("onmousedown", "");
+    newNode.disabled = false; 
+    newNode.innerHTML = "";
+    let img = reader?._iframeWindow?.document.createElement('img')
+    img.src = `chrome://${config.addonRef}/content/icons/papersgpt-logo.png`;
+    img.alt = ''
+    newNode.appendChild(img);
+
+    newNode.addEventListener("click", async () => {
+      var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
+      if (papersgptState === "Offline") {
+	this.callback()
+      } else if (papersgptState == "Online") {
+        this.exit()
+      } 
+    });
+
+    const parentNode = reader?._iframeWindow?.document.querySelector(".start")
+
+    const inputNode =  reader?._iframeWindow?.document.querySelector(".toolbar-text-input")
+    parentNode.insertBefore(newNode, inputNode);
+  }
+
+  private async callback() {
+    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Starting")
+    this.publisher2models.clear()
+    this.publishers = []
+
+    this.isInNote = false
+    const defaultModelApiKey = Zotero.Prefs.get(`${config.addonRef}.openaiApiKey`)
+    let modelConfig: ModelConfig = {
+      models: ["gpt-3.5-turbo", "gpt-4"],
+      hasApiKey: true,
+      apiKey: defaultModelApiKey,
+      areModelsReady: new Map(),
+      defaultModelIdx: 0,
+      apiUrl: "https://api.openai.com/v1/chat/completions"
+    }
+
+    this.publisher2models.set("OpenAI", modelConfig)
+    this.publishers.push("OpenAI")
+    //Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
+    //Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
+    //Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
+    //Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, defaultModelApiKey)
+
+    var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
+    var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
+    if (Zotero.isMac) {
+      var filename = "ChatPDFLocal"
+      const temp = Zotero.getTempDirectory();
+      filename = PathUtils.join(temp.path.replace(temp.leafName, ""), `${filename}.dmg`);
+
+      if (await checkFileExist(filename + ".done")) {
+        var startLocalServer = Zotero.Prefs.get(`${config.addonRef}.startLocalServer`)
+        if (!startLocalServer) {
+          await startLocalLLMEngine(filename)  
+	   
+	  Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, true)
+          const execFunc = async() => {
+	    var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
+            var token =  Zotero.Prefs.get(`${config.addonRef}.token`)
+	    await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
+            Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
+          }
+          window.setTimeout(execFunc, 3000)
+	}
+      } 
+    } else {
+      var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
+      var token =  Zotero.Prefs.get(`${config.addonRef}.token`)
+      await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
+      Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
+    }
+      
+    if (Zotero_Tabs.selectedIndex == 0) {
+      const div = document.querySelector("#item-tree-main-default .row.selected")!
+      if (div) {
+        const rect = div.getBoundingClientRect()
+        this.show(rect.x, rect.y + rect.height)
+      } else {
+        this.show()
+      }
+    } else {
+      const reader = await ztoolkit.Reader.getReader()
+      
+      const div = reader?._iframeWindow?.document.querySelector(".selection-popup")!
+      if (div) {
+        window.setTimeout(() => {
+          this.messages = this.messages.concat(
+            [
+              {
+                role: "user",
+                content: `I am reading a PDF, and the following text is a part of the PDF. Please read it first, and I will ask you some question later: \n${Meet.Zotero.getPDFSelection()}`
+              },
+              {
+                role: "assistant",
+                content: "OK."
+              }
+            ]
+          )
+          const rect = div?.getBoundingClientRect()
+          const windRect = document.documentElement.getBoundingClientRect()
+          const ww = windRect.width *
+            0.01 * Number((Zotero.Prefs.get(`${config.addonRef}.width`) as string).slice(0, -1))
+          ww
+          this.show(rect.left + rect.width * .5 - ww * .5, rect.bottom)
+        }, 233)
+      } else {
+        this.show()
+      }
+    }
+    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Online")
+  }
+
+
   /**
    * Bind shortcut key 
    */
   private registerKey() {
-    const callback = async () => {
-      this.publisher2models.clear()
-      this.publishers = []
-
-      this.isInNote = false
-      const defaultModelApiKey = Zotero.Prefs.get(`${config.addonRef}.openaiApiKey`)
-      let modelConfig: ModelConfig = {
-	  models: ["gpt-3.5-turbo", "gpt-4"],
-	  hasApiKey: true,
-	  apiKey: defaultModelApiKey,
-	  areModelsReady: new Map(),
-	  defaultModelIdx: 0,
-	  apiUrl: "https://api.openai.com/v1/chat/completions"
-      }
-
-      this.publisher2models.set("OpenAI", modelConfig)
-      this.publishers.push("OpenAI")
-      Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
-      Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
-      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
-      Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, defaultModelApiKey)
-
-      var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-      var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
-      if (Zotero.isMac) {
-          var filename = "ChatPDFLocal"
-	  const temp = Zotero.getTempDirectory();
-          filename = PathUtils.join(temp.path.replace(temp.leafName, ""), `${filename}.dmg`);
-	 
-	  if (await checkFileExist(filename + ".done")) {
-	      var startLocalServer = Zotero.Prefs.get(`${config.addonRef}.startLocalServer`)
-              if (!startLocalServer) {
-		  await startLocalLLMEngine(filename)  
-	   
-		  Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, true)
-	          const execFunc = async() => {
-		      var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-                      var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
-                      await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-                      Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-                  }
-                  window.setTimeout(execFunc, 3000)
-	      }
-	  } 
-      } else {
-	  var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-          var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
-	  await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-          Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-      }
-      
-      if (Zotero_Tabs.selectedIndex == 0) {
-        const div = document.querySelector("#item-tree-main-default .row.selected")!
-        if (div) {
-          const rect = div.getBoundingClientRect()
-          this.show(rect.x, rect.y + rect.height)
-        } else {
-          this.show()
-        }
-      } else {
-        const reader = await ztoolkit.Reader.getReader()
-        const div = reader?._iframeWindow?.document.querySelector(".selection-popup")!
-        if (div) {
-          window.setTimeout(() => {
-            this.messages = this.messages.concat(
-              [
-                {
-                  role: "user",
-                  content: `I am reading a PDF, and the following text is a part of the PDF. Please read it first, and I will ask you some question later: \n${Meet.Zotero.getPDFSelection()}`
-                },
-                {
-                  role: "assistant",
-                  content: "OK."
-                }
-              ]
-            )
-            const rect = div?.getBoundingClientRect()
-            const windRect = document.documentElement.getBoundingClientRect()
-            const ww = windRect.width *
-              0.01 * Number((Zotero.Prefs.get(`${config.addonRef}.width`) as string).slice(0, -1))
-            ww
-            this.show(rect.left + rect.width * .5 - ww * .5, rect.bottom)
-          }, 233)
-        } else {
-          this.show()
-        }
-      }
-    }
+    const key = "enter"
     if (Zotero.isMac) {
-
-      ztoolkit.Shortcut.register("event", {
-        id: config.addonRef,
-        modifiers: "meta",
-        key: "enter",
-        callback: callback
+      const modifiers = "meta"
+      ztoolkit.Shortcut.register((ev, data) => {
+        if (data.type === "keyup" && data.keyboard) {
+          if (data.keyboard.equals(`${modifiers},${key}`)) {
+            var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
+	    if (papersgptState == "Offline") {
+              this.callback() 
+	    } 
+          }
+        }
       })
     } else {
-      ztoolkit.Shortcut.register("event", {
-        id: config.addonRef,
-        modifiers: "control",
-        key: "enter",
-        callback: callback
+      const modifiers = "control"
+      ztoolkit.Shortcut.register((ev, data) => {
+        if (data.type === "keyup" && data.keyboard) {
+          if (data.keyboard.equals(`${modifiers},${key}`)) {
+            var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
+            if (papersgptState == "Offline") {
+	      this.callback() 
+	    }
+          }
+        }
       })
     }
     
